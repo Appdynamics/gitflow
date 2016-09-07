@@ -49,6 +49,7 @@ PREFIX=$(git config --get hubflow.prefix.release)
 
 usage() {
 	echo "usage: git hf release [list] [-v]"
+	echo "       git hf release clean"
 	echo "       git hf release start <version> [<base>]"
 	echo "       git hf release finish [-sumpk] <version>"
 	echo "       git hf release cancel <version>"
@@ -61,7 +62,7 @@ cmd_default() {
 }
 
 cmd_list() {
-	DEFINE_boolean verbose false 'verbose (more) output' v
+	DEFINE_boolean verbose true 'verbose (more) output' v
 	parse_args "$@"
 
 	local release_branches
@@ -111,6 +112,10 @@ cmd_list() {
 			fi
 		else
 			printf "%s" "$branch"
+		fi
+
+		if ! git branch -r | grep -q $branch"$"; then
+			printf " (NOT IN REMOTE)"
 		fi
 		echo
 	done
@@ -486,6 +491,70 @@ cmd_push() {
 	git hf push "$@"
 }
 
+cmd_clean() {
+	DEFINE_boolean verbose true 'verbose (more) output' v
+	DEFINE_boolean force false 'needed to delete local branches' f
+	parse_args "$@"
+
+	local release_branches
+	local current_branch
+	local short_names
+	release_branches=$(echo "$(git_local_branches)" | grep "^$PREFIX")
+	if [ -z "$release_branches" ]; then
+		warn "No release branches exist."
+                warn ""
+                warn "You can start a new release branch:"
+                warn ""
+                warn "    git hf release start <name> [<base>]"
+                warn ""
+		exit 0
+	fi
+
+	current_branch=$(git branch --no-color | grep '^\* ' | grep -v 'no branch' | sed 's/^* //g')
+	short_names=$(echo "$release_branches" | sed "s ^$PREFIX  g")
+
+	# determine column width first
+	local width=0
+	local branch
+	for branch in $short_names; do
+		local len=${#branch}
+		width=$(max $width $len)
+	done
+	width=$(($width+3))
+
+	local branch
+	for branch in $short_names; do
+		local fullname=$PREFIX$branch
+		local base=$(git merge-base "$fullname" "$DEVELOP_BRANCH")
+		local develop_sha=$(git rev-parse "$DEVELOP_BRANCH")
+		local branch_sha=$(git rev-parse "$fullname")
+		if [ "$fullname" = "$current_branch" ]; then
+			printf "* "
+		else
+			printf "  "
+		fi
+		if flag verbose; then
+			printf "%-${width}s" "$branch"
+			if [ "$branch_sha" = "$develop_sha" ]; then
+				printf "(no commits yet)"
+			else
+				local nicename=$(git rev-parse --short "$base")
+				printf "(based on $nicename)"
+			fi
+		else
+			printf "%s" "$branch"
+		fi
+
+		if ! git branch -r | grep -q $branch"$"; then
+			if noflag force ; then
+				printf " (NOT REMOVED)"
+			else
+				git branch -d $branch
+			fi
+		fi
+		echo
+	done
+}
 
 parse_remote_name() {
 	# parse options

@@ -89,6 +89,7 @@ cmd_list() {
 	done
 	width=$(($width+3))
 
+	git fetch origin
 	local branch
 	for branch in $short_names; do
 		local fullname=$PREFIX$branch
@@ -99,7 +100,8 @@ cmd_list() {
 			printf "* "
 		else
 			printf "  "
-		fi
+		fi			
+
 		if flag verbose; then
 			printf "%-${width}s" "$branch"
 			if [ "$branch_sha" = "$develop_sha" ]; then
@@ -110,6 +112,10 @@ cmd_list() {
 			fi
 		else
 			printf "%s" "$branch"
+		fi
+
+		if ! git branch -r | grep -q $mybranch"$"; then
+			printf " (NOT IN REMOTE)"
 		fi
 		echo
 	done
