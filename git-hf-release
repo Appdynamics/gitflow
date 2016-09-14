@@ -123,8 +123,10 @@ cmd_list() {
 		fi
 
 		if ! git branch -r | grep -q $branch"$"; then
-			printf " (NOT IN REMOTE)"
+			printf " ${RED}(not in remote)${NC}"
 		fi
+
+		printf " $(git_last_commit_time $branch)"
 		echo
 	done
 }
@@ -510,16 +512,17 @@ cmd_clean() {
 	release_branches=$(echo "$(git_local_branches)" | grep "^$PREFIX")
 	if [ -z "$release_branches" ]; then
 		warn "No release branches exist."
-                warn ""
-                warn "You can start a new release branch:"
-                warn ""
-                warn "    git hf release start <name> [<base>]"
-                warn ""
 		exit 0
 	fi
 
 	current_branch=$(git branch --no-color | grep '^\* ' | grep -v 'no branch' | sed 's/^* //g')
 	short_names=$(echo "$release_branches" | sed "s ^$PREFIX  g")
+
+	if noflag force; then
+		warn "Force (-f) was not used. The following local branches would have been deleted:\n"
+	else
+		printf "The following branches have been removed locally:\n"
+	fi
 
 	# determine column width first
 	local width=0
@@ -553,12 +556,11 @@ cmd_clean() {
 			printf "%s" "$branch"
 		fi
 
+		printf " $(git_last_commit_time $fullname)"
+
 		if ! git branch -r | grep -q $branch"$"; then
-			if noflag force ; then
-				printf " (NOT REMOVED)"
-			else
+			if flag force ; then
 				git branch -d -q $fullname
-				printf " (REMOVED)"
 			fi
 		fi
 		echo

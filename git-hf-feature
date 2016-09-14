@@ -64,13 +64,14 @@ cmd_default() {
 }
 
 cmd_list() {
-	DEFINE_boolean verbose false 'verbose (more) output' v
+	DEFINE_boolean verbose true 'verbose (more) output' v
 	parse_args "$@"
 
 	local feature_branches
 	local current_branch
 	local short_names
 	feature_branches=$(echo "$(git_local_branches)" | grep "^$PREFIX")
+	feature_branches_remote=$(echo "$(git_remote_branches)" | grep "$ORIGIN/$PREFIX")
 	if [ -z "$feature_branches" ]; then
 		warn "No feature branches exist."
 		warn ""
@@ -108,7 +109,7 @@ cmd_list() {
 			if [ "$branch_sha" = "$develop_sha" ]; then
 				printf "(no commits yet)"
 			elif [ "$base" = "$branch_sha" ]; then
-				printf "(is behind develop, may ff)"
+				printf "(merged into develop)"
 			elif [ "$base" = "$develop_sha" ]; then
 				printf "(based on latest develop)"
 			else
@@ -117,7 +118,69 @@ cmd_list() {
 		else
 			printf "%s" "$branch"
 		fi
+
+		branch_exists_in_remote=$(echo "$feature_branches_remote" | grep "$branch")
+		if [ "$branch_exists_in_remote" = "" ]; then
+			printf " ${RED}(not in remote)${NC}"
+		fi
+		printf " $(git_last_commit_time $fullname)"
 		echo
+	done
+}
+
+cmd_clean() {
+	DEFINE_boolean verbose true 'verbose (more) output' v
+	DEFINE_boolean force false 'force' f
+	parse_args "$@"
+
+	local feature_branches
+	local current_branch
+	local short_names
+	feature_branches=$(echo "$(git_local_branches)" | grep "^$PREFIX")
+	feature_branches_remote=$(echo "$(git_remote_branches)" | grep "$ORIGIN/$PREFIX")
+	if [ -z "$feature_branches" ]; then
+		warn "No feature branches exist."
+		exit 0
+	fi
+	current_branch=$(git branch --no-color | grep '^\* ' | grep -v 'no branch' | sed 's/^* //g')
+	short_names=$(echo "$feature_branches" | sed "s ^$PREFIX  g")
+
+	if noflag force; then
+		warn "Force (-f) was not used. The following local branches would have been deleted:\n"
+	else
+		printf "The following branches have been removed locally:\n"
+	fi
+
+	# determine column width first
+	local width=0
+	local branch
+	for branch in $short_names; do
+		local len=${#branch}
+		width=$(max $width $len)
+	done
+	width=$(($width+3))
+
+	local branch
+	for branch in $short_names; do
+		local fullname=$PREFIX$branch
+		local base=$(git merge-base "$fullname" "$DEVELOP_BRANCH")
+		local branch_sha=$(git rev-parse "$fullname")
+		local branch_exists_in_remote=$(echo "$feature_branches_remote" | grep "$branch")
+
+		# If merged into develop and remote doesn't exist, remove from local. 
+		if [ "$base" = "$branch_sha" ];then
+			if [ "$branch_exists_in_remote" = "" ]; then
+				printf "%s $branch $(git_last_commit_time $fullname)\n"
+
+				if flag force; then
+					if [ "$fullname" = "$current_branch" ]; then
+						git checkout -q $DEVELOP_BRANCH
+					fi
+
+					git branch -D $fullname
+				fi
+			fi
+		fi
 	done
 }
 

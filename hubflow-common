@@ -94,6 +94,8 @@ git_current_branch() {
 	git branch --no-color | grep '^\* ' | grep -v 'no branch' | sed 's/^* //g'
 }
 
+git_last_commit_time() { git log --pretty=format:"%C(green)%ad%C(reset)" -n 1 --relative-date $1; }
+
 git_is_clean_working_tree() {
 	if ! git diff --no-ext-diff --ignore-submodules --quiet --exit-code; then
 		return 1

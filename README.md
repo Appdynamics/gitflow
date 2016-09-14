@@ -4,8 +4,6 @@ HubFlow
 Adds the 'git hf' Git extension to provide high-level repository operations
 for [DataSift's HubFlow branching model](http://datasift.github.com/gitflow/), which is based on [Vincent Driessen’s original blog post](http://nvie.com/posts/a-successful-git-branching-model/).
 
-![](http://nvie.com/img/2009/12/Screen-shot-2009-12-24-at-11.32.03.png)
-
 Installation
 ------------
 
@@ -13,14 +11,6 @@ Installation
 2. `cd gitflow`
 3. `sudo ./install.sh`
 
-Windows users will need something like Cygwin in order to use this extension.
-
-Upgrading To The Latest Version
--------------------------------
-
-Upgrading to the latest version of the HubFlow tools is very easy:
-
-1. `sudo git hf upgrade`
 
 Getting Started
 ---------------
