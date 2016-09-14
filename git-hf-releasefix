@@ -45,6 +45,7 @@ require_git_repo
 require_hubflow_initialized
 hubflow_load_settings
 PREFIX=$(git config --get hubflow.prefix.releasefix)
+RELEASEPREFIX=$(git config --get hubflow.prefix.release)
 
 usage() {
 	echo "usage: git hf releasefix [list] [-v]"
@@ -114,7 +115,7 @@ cmd_list() {
 			printf "%s" "$branch"
 		fi
 
-		if ! git branch -r | grep -q $mybranch"$"; then
+		if ! git branch -r | grep -q $branch"$"; then
 			printf " (NOT IN REMOTE)"
 		fi
 		echo
@@ -133,31 +134,42 @@ parse_args() {
 
 	# read arguments into global variables
 	VERSION=$1
+	RELEASEVERSION=$2
+
 	BRANCH=$PREFIX$VERSION
 }
 
 require_version_arg() {
 	if [ "$VERSION" = "" ]; then
 		warn "Missing argument <version>"
+		echo
+		usage
+		exit 1
+	fi
+}
+
+require_base_release_arg() {
+	if [ "$RELEASEVERSION" = "" ]; then
+		warn "Missing argument <base_release_branch>"
+		echo
 		usage
 		exit 1
 	fi
 }
 
 require_release_branch_exists() {	
-	if ! $BASE; then
-		die "fatal: Please specify base release branch is required."
-	fi
-	if ! git ls-remote --exit-code --heads | grep release/$BASE; then
-		die "fatal: release/$BASE does not exist in remote."
+	if ! git branch -r | grep "$ORIGIN/$RELEASEPREFIX$BASE"; then
+		die "$RELEASEPREFIX$BASE is not a valid release branch. Does not exist in remote."
 	fi
 }
 
 cmd_start() {
 	DEFINE_boolean fetch true "fetch from $ORIGIN before creating the new branch" F
 	parse_args "$@"
-	BASE=${2}
 	require_version_arg
+	require_base_release_arg
+	
+	BASE=${2}
 
 	# sanity checks
 	require_release_branch_exists
@@ -173,12 +185,12 @@ cmd_start() {
 	if noflag nofetch; then
 		git fetch -q "$ORIGIN" "release/$BASE"
 	fi
-	if has "$ORIGIN/release/$BASE" $(git_remote_branches); then
-		git checkout "release/$BASE"
-		require_branches_equal "release/$BASE" "$ORIGIN/release/$BASE"
-	fi
 
-	# create branch
+	# ensure that local copy of release branch is up to date with remote
+	git checkout "$RELEASEPREFIX$BASE"
+	require_branches_equal "$RELEASEPREFIX$BASE" "$ORIGIN/release/$BASE"
+
+	# create local releasefix branch based off of local release branch
 	git checkout -b "$BRANCH" "release/$BASE"
 
 	# push it back up to remote repo
@@ -186,15 +198,13 @@ cmd_start() {
 
 	echo
 	echo "Summary of actions:"
-	echo "- A new branch '$BRANCH' was created, based on 'release/$BASE'"
+	echo "- A new branch '$BRANCH' was created, based on '$RELEASEPREFIX$BASE'"
 	echo "- The branch '$BRANCH' has been pushed up to '$ORIGIN/$BRANCH'"
 	echo "- You are now on branch '$BRANCH'"
 	echo
 	echo "Follow-up actions:"
 	echo "- Start committing last-minute fixes in preparing your releasefix branch"
-	echo "- When done, run:"
-	echo
-	echo "     git hf releasefix finish '$VERSION'"
+	echo "- When done, open a PR from GitHub."
 	echo
 }
 

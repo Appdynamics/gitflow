@@ -52,8 +52,12 @@ HUBFLOW_REPO=https://github.com/datasift/gitflow
 #
 
 # shell output
-warn() { echo "$@" >&2; }
-die() { warn "$@"; exit 1; }
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+
+warn() { printf "${RED}WARNING: ${NC}$@\n"; }
+fatal() { printf "${RED}FATAL: ${NC}$@\n"; }
+die() { fatal "$@"; exit 1; }
 
 escape() {
 	echo "$1" | sed 's/\([\.\$\*]\)/\\\1/g'

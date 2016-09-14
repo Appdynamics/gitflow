@@ -57,6 +57,10 @@ usage() {
 	echo "       git hf release pull [<name>]"
 }
 
+fetch_all_release_branches_from_remote() {
+	git branch -r | grep "$ORIGIN/$PREFIX" | while read remote; do git branch -qf --track "${remote#$ORIGIN/}" "$remote"; done
+}
+
 cmd_default() {
 	cmd_list "$@"
 }
@@ -68,14 +72,18 @@ cmd_list() {
 	local release_branches
 	local current_branch
 	local short_names
+
+	fetch_all_release_branches_from_remote
+
 	release_branches=$(echo "$(git_local_branches)" | grep "^$PREFIX")
+
 	if [ -z "$release_branches" ]; then
-		warn "No release branches exist."
-                warn ""
-                warn "You can start a new release branch:"
-                warn ""
-                warn "    git hf release start <name> [<base>]"
-                warn ""
+		warn "No release branches exist locally or in remote."
+		        warn ""
+		        warn "To start a release branch, run the following:"
+		        warn ""
+		        warn "    git hf release start <version>"
+		        warn ""
 		exit 0
 	fi
 
@@ -549,7 +557,8 @@ cmd_clean() {
 			if noflag force ; then
 				printf " (NOT REMOVED)"
 			else
-				git branch -d $branch
+				git branch -d -q $fullname
+				printf " (REMOVED)"
 			fi
 		fi
 		echo
